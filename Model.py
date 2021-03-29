@@ -1,17 +1,18 @@
+import numpy as np
 import tensorflow as tf
+from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.models import Sequential, load_model
+
+# Fix tf GPU parameters on my PC
 physical_devices = tf.config.list_physical_devices('GPU')
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
-
-from tensorflow.keras.models import Sequential, load_model
-from tensorflow.keras.layers import Dense, LSTM, Conv1D, Flatten, Dropout
-import numpy as np
 
 
 def _make_model():
     model = Sequential()
 
     model.add(Dense(
-        units=128,
+        units=32,
         activation='relu'
     ))
 
@@ -48,12 +49,8 @@ class Model:
 
     def predict(self, X):
         threshold = 0.40
-        predictions = []
 
-        for pred in self.model.predict(X):
-            predictions.append([1]) if pred > threshold else predictions.append([0])
-
-        return np.array(predictions)
+        return np.array([[1] if pred > threshold else [0] for pred in self.model.predict(X)])
 
 
 if __name__ == '__main__':
