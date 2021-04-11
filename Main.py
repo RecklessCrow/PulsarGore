@@ -1,5 +1,5 @@
 from Data import Data
-# from Model import Model
+from Model import Model
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import KFold
 from sklearn.metrics import classification_report
@@ -64,11 +64,43 @@ def neural_net():
     data = Data('data/pulsar_data_train.csv')
 
     # Create model and train
-    big_boy = Model(load_file='models/temp.h5')
+
     x, y = data.get_training_data()
-    # big_boy.train(x, y)
+
+    num_layers = 3
+    hidden_size = 16
+    batch_size = 100
+    epochs = 100
+
+    recall_list = []
+    for train_idx, test_idx in KFold().split(x):
+
+        big_boy = Model(
+            num_layers=num_layers,
+            hidden_size=hidden_size
+        )
+
+        big_boy.train(
+            x[train_idx], y[train_idx].ravel(),
+            batch_size=batch_size,
+            epochs=epochs
+        )
+
+        y_pred = big_boy.predict(x[test_idx])
+
+        results = classification_report(y[test_idx], y_pred, output_dict=True)
+        recall = results['1.0']['recall']
+        recall_list.append(recall)
+
+    recall = np.mean(recall_list)
+
+    print('Average Recall = ' + str(recall))
+    with open(f'log.txt', 'a+') as f:
+        f.write(f'\n{num_layers},{hidden_size},{batch_size},{epochs},{recall}')
 
     # Run validation
+    big_boy = Model(num_layers=num_layers, hidden_size=hidden_size)
+    big_boy.train(x, y, batch_size=batch_size, epochs=epochs)
     x_test, y_test = data.get_test_data()
     y_pred = big_boy.predict(x_test)
 
@@ -78,5 +110,5 @@ def neural_net():
 
 
 if __name__ == '__main__':
-    knn()
-    # neural_net()
+    # knn()
+    neural_net()
