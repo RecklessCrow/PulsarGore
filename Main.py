@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 
 def knn():
-    data = Data('data/pulsar_data_train.csv')
+    data = Data()
     x, y = data.get_training_data()
 
     max_recall = float('-inf')
@@ -61,52 +61,30 @@ def knn():
 
 
 def neural_net():
-    data = Data('data/pulsar_data_train.csv')
+    data = Data()
 
-    # Create model and train
+    # Hyper parameters
+    epochs = 750
 
-    x, y = data.get_training_data()
+    # dataset
+    x_train, y_train = data.get_training_data()
 
-    num_layers = 3
-    hidden_size = 16
-    batch_size = 100
-    epochs = 100
-
+    # 5-Fold Cross Validation
     recall_list = []
-    for train_idx, test_idx in KFold().split(x):
-
-        big_boy = Model(
-            num_layers=num_layers,
-            hidden_size=hidden_size
-        )
-
-        big_boy.train(
-            x[train_idx], y[train_idx].ravel(),
-            batch_size=batch_size,
-            epochs=epochs
-        )
-
-        y_pred = big_boy.predict(x[test_idx])
-
-        results = classification_report(y[test_idx], y_pred, output_dict=True)
-        recall = results['1.0']['recall']
+    for train_idx, val_idx in KFold().split(x_train):
+        model = Model()
+        model.train(epochs, x_train[train_idx], y_train[train_idx])
+        recall = model.test(x_train[val_idx], y_train[val_idx])
         recall_list.append(recall)
 
-    recall = np.mean(recall_list)
+    model = Model()
+    model.train(epochs, x_train, y_train)
 
-    print('Average Recall = ' + str(recall))
-    with open(f'log.txt', 'a+') as f:
-        f.write(f'\n{num_layers},{hidden_size},{batch_size},{epochs},{recall}')
-
-    # Run validation
-    big_boy = Model(num_layers=num_layers, hidden_size=hidden_size)
-    big_boy.train(x, y, batch_size=batch_size, epochs=epochs)
+    # get results of a trained model on the test set
     x_test, y_test = data.get_test_data()
-    y_pred = big_boy.predict(x_test)
 
-    print(f'Neural Network')
-    print(classification_report(y_test, y_pred.ravel()))
-    print(classification_report(y_test, y_pred.ravel(), output_dict=True)['1.0']['recall'])
+    print(f'5-Fold Cross Validation Results: Mean Class 1 Recall = {np.mean(recall_list):f}')
+    model.test(x_test, y_test, print_report=True)
 
 
 if __name__ == '__main__':

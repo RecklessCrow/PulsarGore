@@ -1,60 +1,130 @@
+from datetime import datetime
+
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.layers import Dense, Dropout
-from tensorflow.keras.models import Sequential, load_model
+from sklearn.metrics import classification_report
+from sklearn.utils import class_weight
+from tensorflow.keras.layers import *
+from tensorflow.keras.models import Sequential, save_model, load_model
 
 # Fix tf GPU parameters on my PC
+# physical_devices = tf.config.list_physical_devices('GPU')
+# tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
-physical_devices = tf.config.list_physical_devices('GPU')
-tf.config.experimental.set_memory_growth(physical_devices[0], True)
-
-
-def _make_model(num_layers, hidden_size):
-    model = Sequential()
-
-    for _ in range(num_layers):
-        model.add(Dense(
-            units=hidden_size,
-            activation='tanh'
-        ))
-
-    model.add(Dense(
-        units=1,
-        activation='sigmoid'
-    ))
-
-    model.compile(
-        loss='binary_crossentropy',
-        optimizer='adam',
-        metrics=[tf.keras.metrics.Recall()]
-    )
-
-    return model
+time_stamp = datetime.now().strftime('%m-%d_%H-%M-%S')
 
 
 class Model:
-    def __init__(self, load_file=None, save_file='models/temp.h5', num_layers=1, hidden_size=64):
-        self.model = _make_model(num_layers=1, hidden_size=64) if load_file is None else load_model(load_file)
-        self.save_file = save_file
+    def __init__(self, load_file=None, save_file=None):
+        self.model = self.__make_model()
 
-    def train(self, x, y, epochs=40, batch_size=50, validation=False):
+        if load_file is None:
+            self.load(load_file)
 
-        validation_split = 0.2 if validation else None
+        if save_file is None:
+            self.save_file = f'../models/{time_stamp}'
 
-        self.model.fit(
-            x,
-            y,
-            epochs=epochs,
-            batch_size=batch_size,
-            validation_split=validation_split,
-            verbose=2
+    @staticmethod
+    def __make_model():
+        """
+        Makes a simple classification model
+        :return: Keras Model
+        """
+
+        dropout = 0.5
+
+        model = Sequential([
+
+            Dense(
+                units=64,
+                activation='gelu',
+                kernel_initializer='he_normal'
+            ),
+            Dropout(dropout),
+            BatchNormalization(),
+
+            Dense(
+                units=32,
+                activation='gelu',
+                kernel_initializer='he_normal'
+            ),
+            Dropout(dropout),
+            BatchNormalization(),
+
+            Dense(
+                units=32,
+                activation='gelu',
+                kernel_initializer='he_normal'
+            ),
+            Dropout(dropout),
+            BatchNormalization(),
+
+            Dense(
+                2,
+                activation='softmax'
+            )
+
+        ])
+
+        model.compile(
+            loss='categorical_crossentropy',
+            optimizer='nadam',
+            metrics=[tf.keras.metrics.Recall(class_id=1)],  # tracks recall for positive class
         )
 
-        self.model.save(self.save_file)
+        return model
+
+    def train(self, epochs, x, y):
+        """
+        Trains a model on test data
+        :param epochs: Number of times to iterate over the full dataset
+        :param x: Data to train with
+        :param y: Labels of data
+        """
+
+        # creates a dict of class weights to weight loss as if the classes were balanced
+        class_weights = class_weight.compute_class_weight(
+            class_weight='balanced',
+            classes=np.unique(y),
+            y=y.argmax(axis=1)
+        )
+        weights = dict(enumerate(class_weights))
+
+        self.model.fit(
+            x, y,
+            steps_per_epoch=1,
+            epochs=epochs,
+            class_weight=weights
+        )
+
+    def test(self, x, y_true, print_report=False):
+        """
+        Compare a models predictions to actual labels
+        :param x: data
+        :param y_true: real labels
+        :param print_report: wheter to print a report of
+        :return: Class 1 recall
+        """
+        y_pred = self.predict(x)
+        y_pred = y_pred.argmax(axis=1)
+        y_true = y_true.argmax(axis=1)
+
+        if print_report:
+            print(classification_report(y_true, y_pred, target_names=['noise', 'pulsar']))
+
+        results = classification_report(y_true, y_pred, output_dict=True)
+        recall = results['1']['recall']
+
+        return recall
 
     def predict(self, X):
-        pred = self.model.predict(X)
-        return np.array((pred > 0.5), dtype=float)
+        return self.model.predict(X)
+
+    def load(self, filename):
+        self.model = load_model(filename)
+
+    def save(self, filename):
+        save_model(filename, self.model)
 
 
 if __name__ == '__main__':

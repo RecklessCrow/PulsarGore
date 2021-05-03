@@ -1,32 +1,36 @@
 import numpy as np
 import pandas as pd
-from sklearn.impute import SimpleImputer
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+from sklearn.impute import KNNImputer
+from sklearn.preprocessing import RobustScaler, OneHotEncoder
 
 
 class Data:
-    def __init__(self, file_name, seed=1):
-        df = pd.read_csv(file_name)
-        X = df.iloc[:, :-1]
-        Y = np.array(df.iloc[:, -1]).reshape(-1, 1)
+    def __init__(self):
+        self.label_encoder = OneHotEncoder(sparse=False)
+        self.imputer = KNNImputer()
+        self.scaler = RobustScaler()
 
-        X = SimpleImputer(missing_values=np.nan, strategy='mean').fit_transform(X)
-        self.scaler = StandardScaler()
-        X = self.scaler.fit_transform(X)
+        train = pd.read_csv('data/train_data.csv')
+        self.X_train = train.iloc[:, :-1]
+        self.X_train = self.imputer.fit_transform(self.X_train)
+        self.X_train = self.scaler.fit_transform(self.X_train)
+        self.Y_train = np.array(train['target_class']).reshape(-1, 1)
+        self.Y_train = self.label_encoder.fit_transform(self.Y_train)
 
-        self.X_train, self.X_test, self.Y_train, self.Y_test = train_test_split(X, Y, test_size=0.2, random_state=seed)
+        test = pd.read_csv('data/test_data.csv')
+        self.X_test = test.iloc[:, :-1]
+        self.X_test = self.imputer.transform(self.X_test)
+        self.X_test = self.scaler.transform(self.X_test)
+        self.Y_test = np.array(test['target_class']).reshape(-1, 1)
+        self.Y_test = self.label_encoder.transform(self.Y_test)
 
     def get_training_data(self):
         return self.X_train, self.Y_train
 
     def get_test_data(self):
         return self.X_test, self.Y_test
-    
-    def scale(self, X):
-        return self.scaler.transform(X)
 
 
 if __name__ == '__main__':
-    data = Data('data/pulsar_data_train.csv')
+    data = Data()
     print(data.get_training_data())
