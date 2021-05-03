@@ -22,7 +22,7 @@ class Model:
             self.load(load_file)
 
         if save_file is None:
-            self.save_file = f'../models/{time_stamp}'
+            self.save_file = f'models/{time_stamp}'
 
     @staticmethod
     def __make_model():
